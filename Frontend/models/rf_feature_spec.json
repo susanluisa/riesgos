@@ -1,0 +1,125 @@
+{
+  "targetKey": "Years_Experience",
+  "targetClasses": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9"
+  ],
+  "features": [
+    {
+      "kind": "categorical",
+      "key": "Name",
+      "categories": [
+        "Alice Brown",
+        "Bob Johnson",
+        "Charlie Wilson",
+        "Diana Davis",
+        "Eve Miller",
+        "Frank Garcia",
+        "Grace Lee",
+        "Henry Taylor",
+        "Jane Smith",
+        "John Doe",
+        "__other__"
+      ]
+    },
+    {
+      "kind": "numeric",
+      "key": "Age",
+      "median": 29.5,
+      "mean": 29.6,
+      "std": 3.0397368307141326,
+      "standardize": false
+    },
+    {
+      "kind": "categorical",
+      "key": "Department",
+      "categories": [
+        "Engineering",
+        "HR",
+        "Marketing",
+        "Sales",
+        "__other__"
+      ]
+    },
+    {
+      "kind": "numeric",
+      "key": "Salary",
+      "median": 68500,
+      "mean": 69500,
+      "std": 8237.111144084436,
+      "standardize": false
+    },
+    {
+      "kind": "categorical",
+      "key": "Risk_Level",
+      "categories": [
+        "High",
+        "Low",
+        "Medium",
+        "__other__"
+      ]
+    },
+    {
+      "kind": "categorical",
+      "key": "Safety_Training",
+      "categories": [
+        "No",
+        "Yes",
+        "__other__"
+      ]
+    },
+    {
+      "kind": "numeric",
+      "key": "Incident_Count",
+      "median": 1.5,
+      "mean": 1.8,
+      "std": 1.661324772583615,
+      "standardize": false
+    }
+  ],
+  "featureNames": [
+    "Name=Alice Brown",
+    "Name=Bob Johnson",
+    "Name=Charlie Wilson",
+    "Name=Diana Davis",
+    "Name=Eve Miller",
+    "Name=Frank Garcia",
+    "Name=Grace Lee",
+    "Name=Henry Taylor",
+    "Name=Jane Smith",
+    "Name=John Doe",
+    "Name=__other__",
+    "Age",
+    "Department=Engineering",
+    "Department=HR",
+    "Department=Marketing",
+    "Department=Sales",
+    "Department=__other__",
+    "Salary",
+    "Risk_Level=High",
+    "Risk_Level=Low",
+    "Risk_Level=Medium",
+    "Risk_Level=__other__",
+    "Safety_Training=No",
+    "Safety_Training=Yes",
+    "Safety_Training=__other__",
+    "Incident_Count"
+  ],
+  "columnsOriginal": [
+    "Name",
+    "Age",
+    "Department",
+    "Salary",
+    "Risk_Level",
+    "Safety_Training",
+    "Incident_Count",
+    "Years_Experience"
+  ]
+}
