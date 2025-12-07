@@ -1,5 +1,5 @@
 import { MainHeader } from "@/components/main-header"
-import { SettingsPanel } from "@/components/settings-panel"
+import { SettingsPanel } from "@/components/settings_view/settings-panel"
 
 export default function SettingsPage() {
   return (
