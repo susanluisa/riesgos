@@ -1,0 +1,23 @@
+#env files
+.env
+
+# enviroments 
+.venv/
+
+
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+*.pkl
+*.joblib
+*.sav
+
+/models/*
+!/models/README.md
+
+#automatic generated files
+logs/
+tmp/
+outputs/
