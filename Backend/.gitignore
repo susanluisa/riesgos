@@ -1,23 +1,30 @@
-#env files
-.env
-
-# enviroments 
-.venv/
-
-
+# --- Python ---
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 
-*.pkl
-*.joblib
-*.sav
+# Environment
+.env
+.venv/
+venv/
 
-/models/*
-!/models/README.md
+# Cache / bytecode
+*.pyc
+__pycache__/
 
-#automatic generated files
+# Models (except README)
+models/*
+!models/README.md
+
+# Temporary / generated files
 logs/
 tmp/
 outputs/
+
+# VSCode
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
