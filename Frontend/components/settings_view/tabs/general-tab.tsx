@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -8,25 +10,82 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Laptop, Moon, Sun } from "lucide-react"
-import { Settings } from "../settings-model"
+import { LocalStorage, STORAGE_KEYS } from "@/lib/storage"
+import { toast } from "@/components/ui/use-toast"
+import { useTheme } from "next-themes"
+import { logger } from "@/lib/logger"
+import { Settings, defaultSettings } from "../settings-model"
 
-type GeneralSettingsTabProps = {
-  settings: Settings["general"]
-  onChange: (changes: Partial<Settings["general"]>) => void
-  onThemeChange: (theme: string) => void
-  onSave: () => void
-  isSaving: boolean
-  hasUnsavedChanges: boolean
-}
+const GENERAL_SETTINGS_QUERY_KEY = ["settings", "general"]
 
-export function GeneralSettingsTab({
-  settings,
-  onChange,
-  onThemeChange,
-  onSave,
-  isSaving,
-  hasUnsavedChanges,
-}: GeneralSettingsTabProps) {
+export function GeneralSettingsTab() {
+  const queryClient = useQueryClient()
+  const { setTheme } = useTheme()
+  const [draft, setDraft] = useState<Settings["general"]>(defaultSettings.general)
+
+  const { data: storedGeneral, isLoading } = useQuery<Settings["general"]>({
+    queryKey: GENERAL_SETTINGS_QUERY_KEY,
+    queryFn: async () => {
+      const stored = LocalStorage.get<Settings>(STORAGE_KEYS.SETTINGS, defaultSettings)
+      return stored.general
+    },
+  })
+
+  useEffect(() => {
+    if (storedGeneral) {
+      setDraft(storedGeneral)
+      setTheme(storedGeneral.theme)
+    }
+  }, [storedGeneral, setTheme])
+
+  const saveMutation = useMutation({
+    mutationFn: async (next: Settings["general"]) => {
+      const current = LocalStorage.get<Settings>(STORAGE_KEYS.SETTINGS, defaultSettings)
+      const updated = { ...current, general: next }
+      LocalStorage.set(STORAGE_KEYS.SETTINGS, updated)
+      return next
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(GENERAL_SETTINGS_QUERY_KEY, data)
+      setTheme(data.theme)
+      toast({
+        title: "Configuraciones guardadas",
+        description: "Preferencias generales actualizadas.",
+      })
+    },
+    onError: (err) => {
+      logger.error("Error guardando configuraciones generales:", err)
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar las configuraciones generales.",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!storedGeneral) return false
+    return JSON.stringify(draft) !== JSON.stringify(storedGeneral)
+  }, [draft, storedGeneral])
+
+  const handleChange = (changes: Partial<Settings["general"]>) => {
+    setDraft((prev) => ({
+      ...prev,
+      ...changes,
+    }))
+  }
+
+  if (isLoading && !storedGeneral) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuraciones Generales</CardTitle>
+          <CardDescription>Cargando preferencias...</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -37,12 +96,12 @@ export function GeneralSettingsTab({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="company-name">Nombre de la Empresa</Label>
-            <Input id="company-name" value={settings.companyName} onChange={(e) => onChange({ companyName: e.target.value })} />
+            <Input id="company-name" value={draft.companyName} onChange={(e) => handleChange({ companyName: e.target.value })} />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="language">Idioma</Label>
-            <Select value={settings.language} onValueChange={(value) => onChange({ language: value })}>
+            <Select value={draft.language} onValueChange={(value) => handleChange({ language: value })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -58,7 +117,7 @@ export function GeneralSettingsTab({
 
           <div className="space-y-2">
             <Label htmlFor="timezone">Zona Horaria</Label>
-            <Select value={settings.timezone} onValueChange={(value) => onChange({ timezone: value })}>
+            <Select value={draft.timezone} onValueChange={(value) => handleChange({ timezone: value })}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -77,7 +136,7 @@ export function GeneralSettingsTab({
             <Label htmlFor="auto-save">Guardado Automatico</Label>
             <p className="text-sm text-muted-foreground">Guardar cambios automaticamente mientras trabajas</p>
           </div>
-          <Switch id="auto-save" checked={settings.autoSave} onCheckedChange={(checked) => onChange({ autoSave: checked })} />
+          <Switch id="auto-save" checked={draft.autoSave} onCheckedChange={(checked) => handleChange({ autoSave: checked })} />
         </div>
 
         <Separator />
@@ -86,27 +145,27 @@ export function GeneralSettingsTab({
           <Label>Tema</Label>
           <div className="flex items-center space-x-4">
             <Button
-              variant={settings.theme === "light" ? "default" : "outline"}
+              variant={draft.theme === "light" ? "default" : "outline"}
               size="sm"
-              onClick={() => onThemeChange("light")}
+              onClick={() => handleChange({ theme: "light" })}
               className="flex items-center gap-2"
             >
               <Sun className="h-4 w-4" />
               Claro
             </Button>
             <Button
-              variant={settings.theme === "dark" ? "default" : "outline"}
+              variant={draft.theme === "dark" ? "default" : "outline"}
               size="sm"
-              onClick={() => onThemeChange("dark")}
+              onClick={() => handleChange({ theme: "dark" })}
               className="flex items-center gap-2"
             >
               <Moon className="h-4 w-4" />
               Oscuro
             </Button>
             <Button
-              variant={settings.theme === "system" ? "default" : "outline"}
+              variant={draft.theme === "system" ? "default" : "outline"}
               size="sm"
-              onClick={() => onThemeChange("system")}
+              onClick={() => handleChange({ theme: "system" })}
               className="flex items-center gap-2"
             >
               <Laptop className="h-4 w-4" />
@@ -116,8 +175,8 @@ export function GeneralSettingsTab({
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={onSave} disabled={isSaving || !hasUnsavedChanges}>
-          {isSaving ? "Guardando..." : "Guardar Cambios"}
+        <Button onClick={() => saveMutation.mutate(draft)} disabled={saveMutation.isPending || !hasUnsavedChanges}>
+          {saveMutation.isPending ? "Guardando..." : "Guardar Cambios"}
         </Button>
       </CardFooter>
     </Card>
