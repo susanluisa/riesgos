@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import Document
+from app.models.document import Document
 from app.schemas.core import DocumentCreate, DocumentRead
 
 router = APIRouter(prefix="/documents", tags=["documents"])

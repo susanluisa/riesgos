@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import Accident
+from app.models.risk import Accident
 from app.schemas.core import AccidentCreate, AccidentRead
 
 router = APIRouter(prefix="/accidents", tags=["accidents"])

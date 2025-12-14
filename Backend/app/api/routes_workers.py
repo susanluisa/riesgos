@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import Worker
+from app.models.project import Worker
 from app.schemas.core import WorkerCreate, WorkerRead, WorkerUpdate
 
 router = APIRouter(prefix="/workers", tags=["workers"])

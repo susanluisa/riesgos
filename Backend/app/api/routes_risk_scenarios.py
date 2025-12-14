@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import RiskScenario
+from app.models.risk import RiskScenario
 from app.schemas.core import (
     RiskScenarioCreate,
     RiskScenarioRead,

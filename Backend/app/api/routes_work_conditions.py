@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import WorkCondition
+from app.models.project import WorkCondition
 from app.schemas.core import WorkConditionCreate, WorkConditionRead
 
 router = APIRouter(prefix="/work-conditions", tags=["work_conditions"])

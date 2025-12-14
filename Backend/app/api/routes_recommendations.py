@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import Recommendation
+from app.models.risk import Recommendation
 from app.models.enums import RecommendationStatus
 from app.schemas.core import (
     RecommendationCreate,

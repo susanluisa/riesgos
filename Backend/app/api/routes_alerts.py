@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import Alert
+from app.models.risk import Alert
 from app.models.enums import AlertStatus
 from app.schemas.core import AlertRead, AlertUpdateStatus
 

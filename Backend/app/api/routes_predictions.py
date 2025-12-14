@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models.core import RiskPrediction
+from app.models.risk import RiskPrediction
 from app.schemas.core import RiskPredictionCreate, RiskPredictionRead
 
 router = APIRouter(prefix="/predictions", tags=["predictions"])
