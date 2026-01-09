@@ -3,18 +3,38 @@ from datetime import datetime
 from pydantic import BaseModel, EmailStr
 
 
+# --------- USUARIOS ---------
+
+
 class UserBase(BaseModel):
-    name: str
+    username: str
+    full_name: str
     email: EmailStr
+    phone: str | None = None
+    role: str
+    department: str | None = "Seguridad Industrial"
+    is_emergency_contact: bool = False
 
 
 class UserCreate(UserBase):
-    pass  # por ahora igual a UserBase
+    password: str
 
 
-class UserRead(UserBase):
+class UserRead(UserBase): # lo que se devuelve al cliente
     id: int
     created_at: datetime | None = None
 
     class Config:
-        from_attributes = True  # antes era orm_mode = True
+        from_attributes = True  # antes orm_mode=True
+
+
+# --------- AUTH / TOKENS ---------
+
+
+class TokenResponse(BaseModel):
+    accessToken: str
+    refreshToken: str | None = None  # en /refresh puede ser None
+
+
+class RefreshRequest(BaseModel):
+    refresh: str

@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -9,60 +10,258 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { TeamMember } from "../settings-model"
-import { Edit, Loader2, Mail, Phone, Plus, Send, Shield, Trash2 } from "lucide-react"
-import { Dispatch, SetStateAction } from "react"
+import { toast } from "@/components/ui/use-toast"
+import { LocalStorage } from "@/lib/storage"
+import { logger } from "@/lib/logger"
+import {
+  UserCreateInput,
+  UserType,
+  useCreateUserMutation,
+  useTeamQuery,
+  useUpdateUserMutation,
+  UserUpdateInput,
+  UserRole,
+} from "@/app/settings/features/services/team"
+import { TeamMember, buildEmptyMemberForm, defaultSettings } from "../settings-model"
+import { Edit, Loader2, Mail, Phone, Plus, Send, Shield } from "lucide-react"
+import { cn } from "@/lib/utils"
 
-type TeamSettingsTabProps = {
-  team: TeamMember[]
-  newMember: Partial<TeamMember>
-  setNewMember: Dispatch<SetStateAction<Partial<TeamMember>>>
-  editingMember: TeamMember | null
-  dialogOpen: boolean
-  setDialogOpen: (open: boolean) => void
-  isSending: boolean
-  onAddMember: () => void
-  onSaveEditedMember: () => void
-  onEditMember: (member: TeamMember) => void
-  onRemoveMember: (id: string) => void
-  onToggleMemberStatus: (id: string) => void
-  onCloseDialog: () => void
-  onSaveSettings: () => void
-  isSaving: boolean
-  hasUnsavedChanges: boolean
-}
+export function TeamSettingsTab() {
+  const [team, setTeam] = useState<TeamMember[]>([])
+  const [newMember, setNewMember] = useState<Partial<TeamMember>>(buildEmptyMemberForm())
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [isSending, setIsSending] = useState(false)
 
-export function TeamSettingsTab({
-  team,
-  newMember,
-  setNewMember,
-  editingMember,
-  dialogOpen,
-  setDialogOpen,
-  isSending,
-  onAddMember,
-  onSaveEditedMember,
-  onEditMember,
-  onRemoveMember,
-  onToggleMemberStatus,
-  onCloseDialog,
-  onSaveSettings,
-  isSaving,
-  hasUnsavedChanges,
-}: TeamSettingsTabProps) {
+  const { data: teamData, isLoading, isFetching, refetch } = useTeamQuery({ auth: true })
+  const createUserMutation = useCreateUserMutation()
+  const updateUserMutation = useUpdateUserMutation()
+
+  const mappedTeam = useMemo(() => {
+    if (teamData && Array.isArray(teamData)) {
+      return teamData.map(mapUserToTeamMember)
+    }
+    const stored = LocalStorage.get<TeamMember[]>("TEAM_SETTINGS", defaultSettings.team)
+    return stored
+  }, [teamData])
+
+  useEffect(() => {
+    setTeam(mappedTeam)
+    LocalStorage.set("TEAM_SETTINGS", mappedTeam)
+  }, [mappedTeam])
+
+  const resetMemberForm = () => setNewMember(buildEmptyMemberForm())
+
+  const closeMemberDialog = () => {
+    setDialogOpen(false)
+    setEditingMember(null)
+    resetMemberForm()
+  }
+
   const handlePhoneChange = (value: string) => {
     let formatted = value.trim()
     if (formatted && !formatted.startsWith("+")) {
       formatted = "+" + formatted
     }
-    setNewMember({ ...newMember, phone: formatted })
+    setNewMember((prev) => ({ ...prev, phone: formatted }))
+  }
+
+  const persistTeam = (next: TeamMember[]) => {
+    setTeam(next)
+    LocalStorage.set("TEAM_SETTINGS", next)
+  }
+
+  // const addMember = async () => {
+  //   if (!newMember.name || !newMember.email) {
+  //     toast({
+  //       title: "Error",
+  //       description: "Por favor ingresa nombre y email.",
+  //       variant: "destructive",
+  //     })
+  //     return
+  //   }
+
+  //   try {
+  //     setIsSending(true)
+  //     const payload: Partial<UserType> = {
+  //       username: newMember.email || newMember.name || "",
+  //       email: newMember.email || "",
+  //       first_name: newMember.name?.split(" ")[0] ?? "",
+  //       last_name: newMember.name?.split(" ").slice(1).join(" ") ?? "",
+  //       is_active: newMember.isActive ?? true,
+  //     }
+
+  //     const created = await createUserMutation.mutateAsync(payload)
+  //     const memberToAdd = mapUserToTeamMember(created)
+
+  //     persistTeam([...team, memberToAdd])
+  //     resetMemberForm()
+  //     closeMemberDialog()
+
+  //     toast({
+  //       title: "Miembro agregado",
+  //       description: `${memberToAdd.name} ha sido agregado al equipo.`,
+  //     })
+  //   } catch (error) {
+  //     logger.error("Error creando miembro:", error)
+  //     toast({
+  //       title: "Error",
+  //       description: "No se pudo crear el miembro. Intentalo de nuevo.",
+  //       variant: "destructive",
+  //     })
+  //   } finally {
+  //     setIsSending(false)
+  //   }
+  // }
+  const addMember = async () => {
+    if (!newMember.name || !newMember.email) {
+      toast({
+        title: "Error",
+        description: "Por favor ingresa nombre y email.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsSending(true)
+
+      const payload: UserCreateInput = {
+        username: newMember.email || newMember.name || "",
+        password: "password123",
+        full_name: newMember.name?.trim() || "",
+        email: newMember.email || "",
+        phone: newMember.phone || undefined,
+        role: normalizeRole(newMember.role),
+        department: newMember.department || "Seguridad Industrial",
+        is_emergency_contact: newMember.emergencyContact ?? false,
+        is_active: newMember.isActive ?? true,
+      }
+
+      const created = await createUserMutation.mutateAsync(payload)
+
+      const memberToAdd = mapUserToTeamMember(created)
+
+      persistTeam([...team, memberToAdd])
+      resetMemberForm()
+      closeMemberDialog()
+
+      toast({
+        title: "Miembro agregado",
+        description: `${memberToAdd.name} ha sido agregado al equipo.`,
+      })
+    } catch (error) {
+      logger.error("Error creando miembro:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo crear el miembro. Inténtalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+
+  const handleToggleMemberStatus = (memberId: string) => {
+    const numericId = Number(memberId)
+    const member = team.find((m) => m.id === memberId)
+    if (!member) return
+    const nextStatus = !member.isActive
+    updateUserMutation
+      .mutateAsync({ id: numericId, data: { is_active: nextStatus } })
+      .then(() => {
+        const nextTeam = team.map((m) => (m.id === memberId ? { ...m, isActive: nextStatus } : m))
+        persistTeam(nextTeam)
+      })
+      .catch((error) => {
+        logger.error("Error cambiando estado miembro:", error)
+        toast({
+          title: "Error",
+          description: "No se pudo actualizar el estado del miembro.",
+          variant: "destructive",
+        })
+      })
+  }
+
+  const handleEditMember = (member: TeamMember) => {
+    setEditingMember(member)
+    setNewMember({
+      name: member.name,
+      email: member.email,
+      phone: member.phone,
+      role: member.role,
+      department: member.department,
+      isActive: member.isActive,
+      notificationPreferences: { ...member.notificationPreferences },
+      emergencyContact: member.emergencyContact,
+    })
+    setDialogOpen(true)
+  }
+
+  const handleSaveEditedMember = async () => {
+    if (!editingMember || !newMember.name || !newMember.email || !newMember.phone || !newMember.role) {
+      toast({
+        title: "Error",
+        description: "Por favor completa todos los campos obligatorios.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setIsSending(true)
+
+      const numericId = Number(editingMember.id)
+      const payload: UserUpdateInput = {
+        full_name: newMember.name?.trim() ?? editingMember.name,
+        phone: newMember.phone ?? editingMember.phone,
+        department: newMember.department ?? editingMember.department,
+        role: normalizeRole(newMember.role ?? editingMember.role),
+        is_emergency_contact: newMember.emergencyContact ?? editingMember.emergencyContact,
+        is_active: newMember.isActive ?? editingMember.isActive,
+      }
+
+      const updated = await updateUserMutation.mutateAsync({ id: numericId, data: payload })
+      const updatedMember: TeamMember = mapUserToTeamMember(updated)
+
+      const nextTeam = team.map((member) => (member.id === editingMember.id ? updatedMember : member))
+      persistTeam(nextTeam)
+
+      toast({
+        title: "Miembro actualizado",
+        description: `${updatedMember.name} ha sido actualizado exitosamente.`,
+      })
+
+      closeMemberDialog()
+    } catch (error) {
+      logger.error("Error actualizando miembro:", error)
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar el miembro. Intentalo de nuevo.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsSending(false)
+    }
   }
 
   const handleDialogChange = (open: boolean) => {
     setDialogOpen(open)
     if (!open) {
-      onCloseDialog()
+      closeMemberDialog()
     }
+  }
+
+  if (isLoading && team.length === 0) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Equipo de Seguridad</CardTitle>
+          <CardDescription>Cargando equipo...</CardDescription>
+        </CardHeader>
+      </Card>
+    )
   }
 
   return (
@@ -173,11 +372,12 @@ export function TeamSettingsTab({
               </div>
 
               <DialogFooter className="flex gap-2 pt-4">
-                <Button variant="outline" onClick={onCloseDialog}>
+                <Button variant="outline" onClick={dialogOpen ? closeMemberDialog : resetMemberForm}>
+                  {dialogOpen ? "Cancelar" : "Limpiar"}
                   Cancelar
                 </Button>
                 <Button
-                  onClick={() => (editingMember ? onSaveEditedMember() : onAddMember())}
+                  onClick={() => (editingMember ? handleSaveEditedMember() : addMember())}
                   className="bg-blue-600 hover:bg-blue-700"
                   disabled={isSending}
                 >
@@ -241,12 +441,9 @@ export function TeamSettingsTab({
                       </div>
                     )}
                   </div>
-                  <Switch checked={member.isActive} onCheckedChange={() => onToggleMemberStatus(member.id)} />
-                  <Button variant="ghost" size="icon" onClick={() => onEditMember(member)} className="text-blue-500 hover:text-blue-700">
+                  <Switch checked={member.isActive} onCheckedChange={() => handleToggleMemberStatus(member.id)} />
+                  <Button variant="ghost" size="icon" onClick={() => handleEditMember(member)} className="text-blue-500 hover:text-blue-700">
                     <Edit className="h-4 w-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon" onClick={() => onRemoveMember(member.id)} className="text-red-500 hover:text-red-700">
-                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               </div>
@@ -287,10 +484,37 @@ export function TeamSettingsTab({
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={onSaveSettings} disabled={isSaving || !hasUnsavedChanges}>
-          {isSaving ? "Guardando..." : "Guardar Cambios"}
+        <Button onClick={() => refetch()} disabled={isFetching} className={cn(isFetching && "cursor-not-allowed")}>
+          {isFetching ? "Actualizando..." : "Refrescar equipo"}
         </Button>
       </CardFooter>
     </Card>
   )
+}
+
+const mapUserToTeamMember = (user: UserType): TeamMember => ({
+  id: String(user.id),
+  name: user.full_name || user.username || "Sin nombre",
+  email: user.email,
+  phone: user.phone || "",
+  role: user.role || "Miembro",
+  department: user.department || "Seguridad Industrial",
+  isActive: user.is_active,
+  notificationPreferences: {
+    email: true,
+    sms: false,
+    push: true,
+    criticalOnly: false,
+  },
+  emergencyContact: false,
+  lastActive: new Date(user.created_at || user.updated_at || new Date().toISOString()),
+})
+
+const normalizeRole = (role?: string | null): UserRole | undefined => {
+  if (!role) return undefined
+  const value = role.toLowerCase().trim()
+  if (value === "admin") return "admin"
+  if (value === "supervisor") return "supervisor"
+  if (value === "seguridad") return "seguridad"
+  return undefined
 }

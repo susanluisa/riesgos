@@ -1,29 +1,117 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import { Settings } from "../settings-model"
+import { LocalStorage, STORAGE_KEYS } from "@/lib/storage"
+import { toast } from "@/components/ui/use-toast"
+import { logger } from "@/lib/logger"
+import { Settings, TeamMember, defaultSettings } from "../settings-model"
 
-type NotificationsSettingsTabProps = {
-  settings: Settings["notifications"]
-  onChange: (changes: Partial<Settings["notifications"]>) => void
-  onTest: () => void
-  onSave: () => void
-  isSaving: boolean
-  hasUnsavedChanges: boolean
-}
+const NOTIFICATIONS_SETTINGS_QUERY_KEY = ["settings", "notifications"]
 
-export function NotificationsSettingsTab({
-  settings,
-  onChange,
-  onTest,
-  onSave,
-  isSaving,
-  hasUnsavedChanges,
-}: NotificationsSettingsTabProps) {
+export function NotificationsSettingsTab() {
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState<Settings["notifications"]>(defaultSettings.notifications)
+
+  const { data: storedNotifications, isLoading } = useQuery<Settings["notifications"]>({
+    queryKey: NOTIFICATIONS_SETTINGS_QUERY_KEY,
+    queryFn: async () => {
+      const stored = LocalStorage.get<Settings>(STORAGE_KEYS.SETTINGS, defaultSettings)
+      return stored.notifications
+    },
+  })
+
+  useEffect(() => {
+    if (storedNotifications) {
+      setDraft(storedNotifications)
+    }
+  }, [storedNotifications])
+
+  const saveMutation = useMutation({
+    mutationFn: async (next: Settings["notifications"]) => {
+      const current = LocalStorage.get<Settings>(STORAGE_KEYS.SETTINGS, defaultSettings)
+      const updated = { ...current, notifications: next }
+      LocalStorage.set(STORAGE_KEYS.SETTINGS, updated)
+      return next
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(NOTIFICATIONS_SETTINGS_QUERY_KEY, data)
+      toast({
+        title: "Configuraciones guardadas",
+        description: "Preferencias de notificaciones actualizadas.",
+      })
+    },
+    onError: (err) => {
+      logger.error("Error guardando notificaciones:", err)
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar las configuraciones de notificaciones.",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!storedNotifications) return false
+    return JSON.stringify(draft) !== JSON.stringify(storedNotifications)
+  }, [draft, storedNotifications])
+
+  const handleChange = (changes: Partial<Settings["notifications"]>) => {
+    setDraft((prev) => ({
+      ...prev,
+      ...changes,
+    }))
+  }
+
+  const handleTestNotifications = async () => {
+    try {
+      if (draft.desktopNotifications && "Notification" in window) {
+        if (Notification.permission === "default") {
+          await Notification.requestPermission()
+        }
+        if (Notification.permission === "granted") {
+          new Notification("Notificacion de Prueba", {
+            body: "Las notificaciones estan funcionando correctamente.",
+            icon: "/favicon.ico",
+          })
+        }
+      }
+
+      const team = LocalStorage.get<TeamMember[]>("TEAM_SETTINGS", defaultSettings.team)
+      const activeMembers = team.filter((m) => m.isActive)
+      const emailRecipients = activeMembers.filter((m) => m.notificationPreferences.email)
+      const smsRecipients = activeMembers.filter((m) => m.notificationPreferences.sms)
+
+      toast({
+        title: "Notificacion de prueba enviada",
+        description: `Email: ${emailRecipients.length} destinatarios, SMS: ${smsRecipients.length} destinatarios`,
+      })
+    } catch (error) {
+      logger.error("Error en prueba de notificaciones:", error)
+      toast({
+        title: "Error en prueba",
+        description: "No se pudo enviar la notificacion de prueba.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (isLoading && !storedNotifications) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuracion de Notificaciones</CardTitle>
+          <CardDescription>Cargando preferencias...</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -40,11 +128,7 @@ export function NotificationsSettingsTab({
                 <Label htmlFor="email-notifications">Notificaciones por Email</Label>
                 <p className="text-sm text-muted-foreground">Recibir notificaciones via correo electronico</p>
               </div>
-              <Switch
-                id="email-notifications"
-                checked={settings.email}
-                onCheckedChange={(checked) => onChange({ email: checked })}
-              />
+              <Switch id="email-notifications" checked={draft.email} onCheckedChange={(checked) => handleChange({ email: checked })} />
             </div>
 
             <div className="flex items-center justify-between">
@@ -52,7 +136,7 @@ export function NotificationsSettingsTab({
                 <Label htmlFor="sms-notifications">Notificaciones por SMS</Label>
                 <p className="text-sm text-muted-foreground">Recibir notificaciones via mensaje de texto</p>
               </div>
-              <Switch id="sms-notifications" checked={settings.sms} onCheckedChange={(checked) => onChange({ sms: checked })} />
+              <Switch id="sms-notifications" checked={draft.sms} onCheckedChange={(checked) => handleChange({ sms: checked })} />
             </div>
 
             <div className="flex items-center justify-between">
@@ -60,11 +144,7 @@ export function NotificationsSettingsTab({
                 <Label htmlFor="push-notifications">Notificaciones Push</Label>
                 <p className="text-sm text-muted-foreground">Recibir notificaciones en la aplicacion</p>
               </div>
-              <Switch
-                id="push-notifications"
-                checked={settings.push}
-                onCheckedChange={(checked) => onChange({ push: checked })}
-              />
+              <Switch id="push-notifications" checked={draft.push} onCheckedChange={(checked) => handleChange({ push: checked })} />
             </div>
           </div>
 
@@ -78,8 +158,8 @@ export function NotificationsSettingsTab({
               </div>
               <Switch
                 id="security-alerts"
-                checked={settings.securityAlerts}
-                onCheckedChange={(checked) => onChange({ securityAlerts: checked })}
+                checked={draft.securityAlerts}
+                onCheckedChange={(checked) => handleChange({ securityAlerts: checked })}
               />
             </div>
 
@@ -90,8 +170,8 @@ export function NotificationsSettingsTab({
               </div>
               <Switch
                 id="model-updates"
-                checked={settings.modelTrainingUpdates}
-                onCheckedChange={(checked) => onChange({ modelTrainingUpdates: checked })}
+                checked={draft.modelTrainingUpdates}
+                onCheckedChange={(checked) => handleChange({ modelTrainingUpdates: checked })}
               />
             </div>
 
@@ -100,11 +180,7 @@ export function NotificationsSettingsTab({
                 <Label htmlFor="critical-only">Solo Criticas</Label>
                 <p className="text-sm text-muted-foreground">Recibir solo notificaciones criticas</p>
               </div>
-              <Switch
-                id="critical-only"
-                checked={settings.criticalOnly}
-                onCheckedChange={(checked) => onChange({ criticalOnly: checked })}
-              />
+              <Switch id="critical-only" checked={draft.criticalOnly} onCheckedChange={(checked) => handleChange({ criticalOnly: checked })} />
             </div>
           </div>
         </div>
@@ -122,8 +198,8 @@ export function NotificationsSettingsTab({
               </div>
               <Switch
                 id="auto-send"
-                checked={settings.autoSendToResponsibles}
-                onCheckedChange={(checked) => onChange({ autoSendToResponsibles: checked })}
+                checked={draft.autoSendToResponsibles}
+                onCheckedChange={(checked) => handleChange({ autoSendToResponsibles: checked })}
               />
             </div>
 
@@ -132,7 +208,7 @@ export function NotificationsSettingsTab({
                 <Label htmlFor="send-to-all">Enviar a todos</Label>
                 <p className="text-sm text-muted-foreground">Enviar copias a todo el equipo de seguridad</p>
               </div>
-              <Switch id="send-to-all" checked={settings.sendToAll} onCheckedChange={(checked) => onChange({ sendToAll: checked })} />
+              <Switch id="send-to-all" checked={draft.sendToAll} onCheckedChange={(checked) => handleChange({ sendToAll: checked })} />
             </div>
           </div>
 
@@ -144,11 +220,7 @@ export function NotificationsSettingsTab({
                 <Label htmlFor="sound-enabled">Sonido habilitado</Label>
                 <p className="text-sm text-muted-foreground">Activar sonidos para nuevas notificaciones</p>
               </div>
-              <Switch
-                id="sound-enabled"
-                checked={settings.soundEnabled}
-                onCheckedChange={(checked) => onChange({ soundEnabled: checked })}
-              />
+              <Switch id="sound-enabled" checked={draft.soundEnabled} onCheckedChange={(checked) => handleChange({ soundEnabled: checked })} />
             </div>
 
             <div className="flex items-center justify-between">
@@ -158,19 +230,19 @@ export function NotificationsSettingsTab({
               </div>
               <Switch
                 id="desktop-notifications"
-                checked={settings.desktopNotifications}
-                onCheckedChange={(checked) => onChange({ desktopNotifications: checked })}
+                checked={draft.desktopNotifications}
+                onCheckedChange={(checked) => handleChange({ desktopNotifications: checked })}
               />
             </div>
           </div>
         </div>
       </CardContent>
       <CardFooter className="flex flex-wrap gap-2">
-        <Button variant="outline" onClick={onTest}>
+        <Button variant="outline" onClick={handleTestNotifications}>
           Probar Notificaciones
         </Button>
-        <Button onClick={onSave} disabled={isSaving || !hasUnsavedChanges}>
-          {isSaving ? "Guardando..." : "Guardar Cambios"}
+        <Button onClick={() => saveMutation.mutate(draft)} disabled={saveMutation.isPending || !hasUnsavedChanges}>
+          {saveMutation.isPending ? "Guardando..." : "Guardar Cambios"}
         </Button>
       </CardFooter>
     </Card>

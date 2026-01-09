@@ -1,22 +1,85 @@
 "use client"
 
+import { useEffect, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Settings } from "../settings-model"
+import { LocalStorage, STORAGE_KEYS } from "@/lib/storage"
+import { toast } from "@/components/ui/use-toast"
+import { logger } from "@/lib/logger"
+import { Settings, defaultSettings } from "../settings-model"
 
-type AiSettingsTabProps = {
-  settings: Settings["ai"]
-  onChange: (changes: Partial<Settings["ai"]>) => void
-  onSave: () => void
-  isSaving: boolean
-  hasUnsavedChanges: boolean
-}
+const AI_SETTINGS_QUERY_KEY = ["settings", "ai"]
 
-export function AiSettingsTab({ settings, onChange, onSave, isSaving, hasUnsavedChanges }: AiSettingsTabProps) {
+export function AiSettingsTab() {
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState<Settings["ai"]>(defaultSettings.ai)
+
+  const { data: storedAi, isLoading } = useQuery<Settings["ai"]>({
+    queryKey: AI_SETTINGS_QUERY_KEY,
+    queryFn: async () => {
+      const stored = LocalStorage.get<Settings>(STORAGE_KEYS.SETTINGS, defaultSettings)
+      return stored.ai
+    },
+  })
+
+  useEffect(() => {
+    if (storedAi) {
+      setDraft(storedAi)
+    }
+  }, [storedAi])
+
+  const saveMutation = useMutation({
+    mutationFn: async (next: Settings["ai"]) => {
+      const current = LocalStorage.get<Settings>(STORAGE_KEYS.SETTINGS, defaultSettings)
+      const updated = { ...current, ai: next }
+      LocalStorage.set(STORAGE_KEYS.SETTINGS, updated)
+      return next
+    },
+    onSuccess: (data) => {
+      queryClient.setQueryData(AI_SETTINGS_QUERY_KEY, data)
+      toast({
+        title: "Configuraciones guardadas",
+        description: "Preferencias de IA actualizadas.",
+      })
+    },
+    onError: (err) => {
+      logger.error("Error guardando configuraciones IA:", err)
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar las configuraciones de IA.",
+        variant: "destructive",
+      })
+    },
+  })
+
+  const hasUnsavedChanges = useMemo(() => {
+    if (!storedAi) return false
+    return JSON.stringify(draft) !== JSON.stringify(storedAi)
+  }, [draft, storedAi])
+
+  const handleChange = (changes: Partial<Settings["ai"]>) => {
+    setDraft((prev) => ({
+      ...prev,
+      ...changes,
+    }))
+  }
+
+  if (isLoading && !storedAi) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Configuracion IA</CardTitle>
+          <CardDescription>Cargando preferencias...</CardDescription>
+        </CardHeader>
+      </Card>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -33,8 +96,8 @@ export function AiSettingsTab({ settings, onChange, onSave, isSaving, hasUnsaved
               </div>
               <Switch
                 id="model-explanations"
-                checked={settings.modelExplanations}
-                onCheckedChange={(checked) => onChange({ modelExplanations: checked })}
+                checked={draft.modelExplanations}
+                onCheckedChange={(checked) => handleChange({ modelExplanations: checked })}
               />
             </div>
 
@@ -43,7 +106,7 @@ export function AiSettingsTab({ settings, onChange, onSave, isSaving, hasUnsaved
                 <Label htmlFor="auto-tuning">Auto ajuste</Label>
                 <p className="text-sm text-muted-foreground">Optimizar parametros automaticamente</p>
               </div>
-              <Switch id="auto-tuning" checked={settings.autoTuning} onCheckedChange={(checked) => onChange({ autoTuning: checked })} />
+              <Switch id="auto-tuning" checked={draft.autoTuning} onCheckedChange={(checked) => handleChange({ autoTuning: checked })} />
             </div>
           </div>
 
@@ -55,8 +118,8 @@ export function AiSettingsTab({ settings, onChange, onSave, isSaving, hasUnsaved
               </div>
               <Switch
                 id="feature-importance"
-                checked={settings.featureImportance}
-                onCheckedChange={(checked) => onChange({ featureImportance: checked })}
+                checked={draft.featureImportance}
+                onCheckedChange={(checked) => handleChange({ featureImportance: checked })}
               />
             </div>
 
@@ -68,8 +131,8 @@ export function AiSettingsTab({ settings, onChange, onSave, isSaving, hasUnsaved
                 min="0.1"
                 max="1.0"
                 step="0.1"
-                value={settings.confidenceThreshold}
-                onChange={(e) => onChange({ confidenceThreshold: Number.parseFloat(e.target.value) || 0.8 })}
+                value={draft.confidenceThreshold}
+                onChange={(e) => handleChange({ confidenceThreshold: Number.parseFloat(e.target.value) || 0.8 })}
               />
             </div>
           </div>
@@ -77,7 +140,7 @@ export function AiSettingsTab({ settings, onChange, onSave, isSaving, hasUnsaved
 
         <div className="space-y-2">
           <Label htmlFor="retraining-frequency">Frecuencia de reentrenamiento</Label>
-          <Select value={settings.retrainingFrequency} onValueChange={(value) => onChange({ retrainingFrequency: value })}>
+          <Select value={draft.retrainingFrequency} onValueChange={(value) => handleChange({ retrainingFrequency: value })}>
             <SelectTrigger>
               <SelectValue />
             </SelectTrigger>
@@ -91,8 +154,8 @@ export function AiSettingsTab({ settings, onChange, onSave, isSaving, hasUnsaved
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={onSave} disabled={isSaving || !hasUnsavedChanges}>
-          {isSaving ? "Guardando..." : "Guardar Cambios"}
+        <Button onClick={() => saveMutation.mutate(draft)} disabled={saveMutation.isPending || !hasUnsavedChanges}>
+          {saveMutation.isPending ? "Guardando..." : "Guardar Cambios"}
         </Button>
       </CardFooter>
     </Card>
