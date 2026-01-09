@@ -136,8 +136,8 @@ export function ScenariosPanel() {
 
   const filteredScenarios = scenarios.filter((scenario) => {
     const matchesSearch =
-      scenario.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      scenario.description.toLowerCase().includes(searchTerm.toLowerCase())
+      scenario.name?.includes(searchTerm) ||
+      scenario.description?.includes(searchTerm)
     const matchesCategory = filterCategory === "all" || scenario.category === filterCategory
     const matchesRiskLevel = filterRiskLevel === "all" || scenario.riskLevel === filterRiskLevel
 
