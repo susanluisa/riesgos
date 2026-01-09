@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import os
 
 from jose import jwt, JWTError
+from fastapi import HTTPException
 from passlib.context import CryptContext
 from dotenv import load_dotenv
 
@@ -17,10 +18,17 @@ if not SECRET_KEY:
     raise ValueError("SECRET_KEY no está definida en el archivo .env")
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+MAX_BCRYPT_BYTES = 72
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    password_bytes = password.encode("utf-8")
+    if len(password_bytes) > MAX_BCRYPT_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail="La contraseña no puede exceder 72 bytes",
+        )
+    return pwd_context.hash(password_bytes)
 
 
 def verify_password(password: str, hashed: str) -> bool:

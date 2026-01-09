@@ -21,7 +21,7 @@ export default function HomePage() {
 
           <Tabs defaultValue="dashboard" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="dashboard">Dashboard ML</TabsTrigger>
+              {/* <TabsTrigger value="dashboard">Dashboard ML</TabsTrigger> */}
               <TabsTrigger value="prediction">Predicción en Tiempo Real</TabsTrigger>
             </TabsList>
 

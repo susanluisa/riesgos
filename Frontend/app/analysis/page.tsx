@@ -27,9 +27,10 @@ export default function AnalysisPage() {
             <ScenariosPanel />
           </TabsContent>
 
-          <TabsContent value="assistant">
+          {/* Pestania de asistente  */}
+          {/* <TabsContent value="assistant">
             <AIRiskAssistant />
-          </TabsContent>
+          </TabsContent> */}
 
           <TabsContent value="prediction">
             <RealTimePrediction />

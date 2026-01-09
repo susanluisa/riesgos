@@ -24,7 +24,7 @@ const navigation = [
   { name: "Predicción", href: "/prediction" },
   { name: "Reportes", href: "/reports" },
   { name: "Documentos", href: "/documents" },
-  { name: "Asistente", href: "/assistant" },
+  // { name: "Asistente", href: "/assistant" },
   { name: "Configuración", href: "/settings" },
 ]
 
