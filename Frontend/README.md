@@ -1,4 +1,4 @@
-# Sistema de Gestión de Riesgos Ocupacionales
+# Sistema de Gestión de Riesgos Ocupacionales - Simulación
 
 Sistema integral para análisis predictivo y gestión de riesgos ocupacionales con IA, desarrollado con Next.js 15 y TypeScript.
 
@@ -173,19 +173,6 @@ Para soporte técnico o consultas:
 - Asistente IA especializado
 - Sistema de almacenamiento robusto
 
-### Próximas Funcionalidades
-- Integración con sensores IoT
-- Reportes avanzados con BI
-- App móvil nativa
-- Integración con sistemas ERP
-- Análisis de video con IA
-
 ---
 
 **Desarrollado para mejorar la seguridad ocupacional**
-
-
-## ML (RF + SMOTE en Node)
-- Endpoint: `POST /api/train`
-- Body: `{ X: number[][], y: number[], options?: { nEstimators?, maxFeatures?, replacement?, seed?, useSmote?, testSize? } }`
-- Dev: `pnpm add ml-random-forest smote-ts simple-statistics zod`
