@@ -19,6 +19,3 @@ def non_defective_gift():
 
 
 print(non_defective_gift())
-
-
-# non_defective_gift()
